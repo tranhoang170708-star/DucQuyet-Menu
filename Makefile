@@ -4,7 +4,7 @@ export THEOS_DEVICE_PORT = 2222
 TWEAK_NAME = SystemProvider
 
 SystemProvider_FILES = Tweak.xm
-SystemProvider_CFLAGS = -fobjc-arc
+SystemProvider_CFLAGS = -fobjc-arc -Wno-unguarded-availability-new -Wno-error
 SystemProvider_LDFLAGS = -Wl,-segalign,4000
 SystemProvider_FRAMEWORKS = UIKit CoreGraphics
 
