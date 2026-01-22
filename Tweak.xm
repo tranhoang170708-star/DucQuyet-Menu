@@ -65,7 +65,7 @@ static void safe_patch(uintptr_t offset, const char *bytes, size_t len) {
 - (void)onMap:(UISwitch *)s { if(s.isOn) safe_patch(OFFSET_MAP, "\x00\x00\x80\xD2\xC0\x03\x5F\xD6", 8); }
 - (void)onAnten:(UISwitch *)s { if(s.isOn) safe_patch(OFFSET_ANTEN, "\x00\x00\xA0\x43", 4); }
 
-// Cho phép bấm xuyên qua các vùng trống để không ảnh hưởng thao tác game
+// Cho phép bấm hxuyên qua các vùng trống để không ảnh hưởng thao tác game
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
     UIView *view = [super hitTest:point withEvent:event];
     return (view == self) ? nil : view;
