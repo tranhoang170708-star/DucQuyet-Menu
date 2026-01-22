@@ -12,11 +12,9 @@ jobs:
           export THEOS=/opt/theos
           sudo git clone --recursive https://github.com/theos/theos.git $THEOS
           sudo chown -R $(id -u):$(id -g) $THEOS
-          # Sửa lỗi: Kiểm tra nếu chưa có SDK thì mới tải, tránh bị báo lỗi 'already exists'
+          # Chỉ tải SDK nếu chưa có để tránh lỗi "already exists"
           if [ ! -d "$THEOS/sdks" ]; then
             git clone https://github.com/theos/sdks.git $THEOS/sdks
-          else
-            echo "SDKs already exist, skipping clone."
           fi
 
       - name: Compile
