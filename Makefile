@@ -1,15 +1,12 @@
-export THEOS = /opt/theos
-DEBUG = 0
-FINALPACKAGE = 1
-TARGET = iphone:clang:latest:14.0
+export THEOS_DEVICE_IP = 127.0.0.1
+export THEOS_DEVICE_PORT = 2222
+
+# Đổi DucQuyetMenu thành tên gì đó vô hại như "SystemSoundFix"
+TWEAK_NAME = SystemSoundFix 
+
+SystemSoundFix_FILES = Tweak.xm
+SystemSoundFix_CFLAGS = -fobjc-arc
+SystemSoundFix_LDFLAGS = -Wl,-segalign,4000
 
 include $(THEOS)/makefiles/common.mk
-
-TWEAK_NAME = DucQuyetMenu
-DucQuyetMenu_FILES = Tweak.xm
-DucQuyetMenu_CFLAGS = -fobjc-arc
-# THÊM substrate VÀO ĐÂY
-DucQuyetMenu_LIBRARIES = substrate
-DucQuyetMenu_FRAMEWORKS = UIKit CoreGraphics QuartzCore
-
-include $(THEOS)/makefiles/tweak.mk
+include $(THEOS_MAKE_PATH)/tweak.mk
