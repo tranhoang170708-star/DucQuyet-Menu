@@ -10,27 +10,38 @@ jobs:
       - name: Setup Theos
         run: |
           export THEOS=/opt/theos
-          # Xóa sạch folder cũ nếu có để tránh lỗi 128
           sudo rm -rf $THEOS
-          sudo git clone --recursive https://github.com/theos/theos.git $THEOS
+          # Clone Theos không kèm recursive để kiểm soát sdks
+          sudo git clone https://github.com/theos/theos.git $THEOS
+          cd $THEOS
+          sudo git submodule update --init --recursive
           sudo chown -R $(id -u):$(id -g) $THEOS
+          
           brew install ldid
-          # Cài SDK
-          git clone https://github.com/theos/sdks.git $THEOS/sdks
+          
+          # Kiểm tra và cài SDK một cách an toàn
+          if [ ! -d "$THEOS/sdks" ] || [ -z "$(ls -A $THEOS/sdks)" ]; then
+            echo "Installing SDKs..."
+            rm -rf $THEOS/sdks
+            git clone https://github.com/theos/sdks.git $THEOS/sdks
+          else
+            echo "SDKs already exist, skipping."
+          fi
 
       - name: Compile
         run: |
           export THEOS=/opt/theos
-          # Xóa cache build cũ
+          # Tạo folder build để tránh lỗi Clang session
+          mkdir -p .theos/obj
           make clean
-          # Lệnh build ép ra file dylib cho cả arm64 và arm64e
+          # Build cho cả 2 kiến trúc phổ biến của iPhone
           make DucQuyetMenu.all.tweak.variables FINALPACKAGE=1 ARCHS="arm64 arm64e"
         continue-on-error: true
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: DucQuyet-Menu-Output
+          name: DucQuyet-Menu-Dylib
           path: |
             .theos/obj/arm64/*.dylib
             .theos/obj/arm64e/*.dylib
