@@ -4,10 +4,9 @@
 <dict>
     <key>Filter</key>
     <dict>
-        <key>Classes</key>
+        <key>Bundles</key>
         <array>
-            <string>UIApplication</string>
-        </array>
+            <string>com.garena.game.kgvn20</string> </array>
     </dict>
 </dict>
 </plist>
