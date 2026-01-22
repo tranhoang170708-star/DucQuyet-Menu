@@ -5,8 +5,9 @@ include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = DucQuyetMenu
 
-# Lệnh này giúp tự động nhận diện các file ImGui nếu bạn upload chúng lên
+# Quan trọng: Dòng này trỏ đến các file trong thư mục ImGui bạn vừa up
 DucQuyetMenu_FILES = Tweak.xm $(wildcard ImGui/*.cpp)
+# Thêm đường dẫn header
 DucQuyetMenu_CFLAGS = -fobjc-arc -IImGui
 
 include $(THEOS_MAKE_PATH)/tweak.mk
