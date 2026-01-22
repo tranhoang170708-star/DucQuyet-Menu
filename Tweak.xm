@@ -94,8 +94,12 @@ static BOOL isMapHackOn = NO;
             win.windowLevel = UIWindowLevelAlert + 1;
             win.backgroundColor = [UIColor clearColor];
             [win makeKeyAndVisible];
-            // Lưu window để tránh bị giải phóng bộ nhớ
-            objc_setAssociatedObject(application, @"dq_win", win, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            
+            // SỬA LỖI TẠI ĐÂY: Sử dụng một biến static char làm Key
+            static char dq_window_key; 
+            objc_setAssociatedObject(application, &dq_window_key, win, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            
+            NSLog(@"[DQ] Menu Pro Ready with Map Hack!");
         });
     });
 }
