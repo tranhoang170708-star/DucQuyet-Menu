@@ -11,16 +11,13 @@ jobs:
         run: |
           export THEOS=/opt/theos
           sudo rm -rf $THEOS
-          # Tải Theos bản mới nhất
           sudo git clone https://github.com/theos/theos.git $THEOS
           cd $THEOS
           sudo git submodule update --init --recursive
           sudo chown -R $(id -u):$(id -g) $THEOS
           
-          # Cài đặt công cụ ký file
           brew install ldid
           
-          # Cài đặt SDK iOS (Sửa lỗi 128 bằng cách kiểm tra thư mục)
           if [ ! -d "$THEOS/sdks" ] || [ -z "$(ls -A $THEOS/sdks)" ]; then
             sudo rm -rf $THEOS/sdks
             git clone https://github.com/theos/sdks.git $THEOS/sdks
@@ -29,10 +26,13 @@ jobs:
       - name: Compile
         run: |
           export THEOS=/opt/theos
-          # Dọn dẹp bản build cũ
+          # Lệnh quan trọng: Tạo thư mục .theos trước để tránh lỗi build_session
+          mkdir -p .theos/obj
+          touch .theos/build_session
+          
           make clean
-          # Biên dịch cho iPhone đời thấp (arm64) và đời cao (arm64e)
-          make DucQuyetMenu.all.tweak.variables FINALPACKAGE=1 ARCHS="arm64 arm64e"
+          # Sử dụng lệnh biên dịch tiêu chuẩn, ép kiến trúc arm64
+          make package FINALPACKAGE=1 ARCHS="arm64 arm64e"
         continue-on-error: true
 
       - name: Upload Artifact
@@ -40,7 +40,6 @@ jobs:
         with:
           name: DucQuyet-Menu-Output
           path: |
-            .theos/obj/arm64/*.dylib
-            .theos/obj/arm64e/*.dylib
             .theos/obj/*.dylib
+            packages/*.deb
           if-no-files-found: error
