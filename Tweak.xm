@@ -1,32 +1,36 @@
 #import <UIKit/UIKit.h>
-
-// Gọi các file trong thư mục gui (Đảm bảo folder gui có các file này)
 #include "gui/imgui.h"
-#include "gui/imgui_internal.h"
 
 static bool show_menu = true;
 
-// Hàm vẽ Menu đơn giản
-void DrawDucQuyetMenu() {
+// Hàm khởi tạo Menu
+void RenderMenu() {
     if (!show_menu) return;
-    
-    // Kiểm tra ImGui Context để tránh văng game
+
     if (ImGui::GetCurrentContext() != NULL) {
-        ImGui::Begin("DUC QUYET VIP", &show_menu);
-        ImGui::Text("Menu phien ban 2026");
-        if (ImGui::Button("Tat Menu")) show_menu = false;
+        ImGui::Begin("DUC QUYET MENU", &show_menu);
+        ImGui::Text("Phien ban Mod 2026");
+        ImGui::Separator();
+        
+        if (ImGui::Button("Bat Hack")) {
+            // Logic hack của bạn ở đây
+        }
+        
+        if (ImGui::Button("Dong Menu")) {
+            show_menu = false;
+        }
         ImGui::End();
     }
 }
 
-// Hook vào giao diện để hiện Menu
+// Hook vào View để hiển thị
 %hook UIView
 - (void)layoutSubviews {
     %orig;
-    DrawDucQuyetMenu();
+    RenderMenu();
 }
 %end
 
 %ctor {
-    NSLog(@"[DucQuyet] Tweak da kich hoat!");
+    NSLog(@"[DucQuyet] Tweak Loaded!");
 }
