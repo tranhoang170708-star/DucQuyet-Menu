@@ -10,29 +10,27 @@ jobs:
       - name: Setup Theos
         run: |
           export THEOS=/opt/theos
+          # Xóa sạch folder cũ nếu có để tránh lỗi 128
+          sudo rm -rf $THEOS
           sudo git clone --recursive https://github.com/theos/theos.git $THEOS
           sudo chown -R $(id -u):$(id -g) $THEOS
           brew install ldid
-          # Chỉ clone SDK nếu thư mục chưa tồn tại
-          if [ ! -d "$THEOS/sdks" ]; then
-            git clone https://github.com/theos/sdks.git $THEOS/sdks
-          else
-            echo "SDKs already exists, skipping clone."
-          fi
+          # Cài SDK
+          git clone https://github.com/theos/sdks.git $THEOS/sdks
 
       - name: Compile
         run: |
           export THEOS=/opt/theos
-          # Xóa cache cũ để tránh lỗi biên dịch
+          # Xóa cache build cũ
           make clean
-          # Lệnh build ép ra file dylib
-          make DucQuyetMenu.all.tweak.variables FINALPACKAGE=1
+          # Lệnh build ép ra file dylib cho cả arm64 và arm64e
+          make DucQuyetMenu.all.tweak.variables FINALPACKAGE=1 ARCHS="arm64 arm64e"
         continue-on-error: true
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: DucQuyet-Menu-Dylib
+          name: DucQuyet-Menu-Output
           path: |
             .theos/obj/arm64/*.dylib
             .theos/obj/arm64e/*.dylib
