@@ -1,12 +1,12 @@
 export THEOS_DEVICE_IP = 127.0.0.1
 export THEOS_DEVICE_PORT = 2222
 
-TWEAK_NAME = SystemProvider
+# Đặt tên trùng với file .plist
+TWEAK_NAME = DQMenu
 
-SystemProvider_FILES = Tweak.xm
-SystemProvider_CFLAGS = -fobjc-arc -Wno-unguarded-availability-new -Wno-error
-SystemProvider_LDFLAGS = -Wl,-segalign,4000
-SystemProvider_FRAMEWORKS = UIKit CoreGraphics
+DQMenu_FILES = Tweak.xm
+DQMenu_CFLAGS = -fobjc-arc
+DQMenu_FRAMEWORKS = UIKit CoreGraphics
 
 include $(THEOS)/makefiles/common.mk
 include $(THEOS_MAKE_PATH)/tweak.mk
