@@ -3,20 +3,22 @@
 #import <substrate.h>
 #import <objc/runtime.h>
 
-// --- PATCH AN TOÀN ---
+// --- KIỂM TRA ĐỊA CHỈ TRƯỚC KHI PATCH ---
 uintptr_t get_BaseAddress() {
     return (uintptr_t)_dyld_get_image_header(0);
 }
 
 void safe_patch(uintptr_t offset, const char *bytes, size_t len) {
     uintptr_t address = get_BaseAddress() + offset;
-    // Chỉ patch nếu địa chỉ có vẻ hợp lệ để tránh crash ngay lập tức
-    if (address > 0x1000000) {
-        MSHookMemory((void *)address, bytes, len);
-    }
+    // Kiểm tra vùng nhớ ARM64 hợp lệ (thường > 0x100000000)
+    if (address < 0x100000000) return; 
+    
+    // Sử dụng mprotect nội bộ của MSHookMemory
+    MSHookMemory((void *)address, bytes, len);
 }
 
 // --- OFFSETS ---
+// Nếu game cập nhật, 2 số này là nguyên nhân gây văng 
 #define OFFSET_MAP_FOG    0x1D2C4A0 
 #define OFFSET_ANTEN_VAL  0x2E1A5C4
 
@@ -29,20 +31,19 @@ void safe_patch(uintptr_t offset, const char *bytes, size_t len) {
 - (void)viewDidLoad {
     [super viewDidLoad];
 
-    // Nút nổi mở menu
-    UIButton *btnOpen = [UIButton buttonWithType:UIButtonTypeCustom];
+    // Nút nổi mở menu (Sử dụng UIButtonTypeSystem cho nhẹ)
+    UIButton *btnOpen = [UIButton buttonWithType:UIButtonTypeSystem];
     btnOpen.frame = CGRectMake(30, 150, 50, 50);
     btnOpen.backgroundColor = [UIColor cyanColor];
     btnOpen.layer.cornerRadius = 25;
     [btnOpen setTitle:@"DQ" forState:UIControlStateNormal];
-    [btnOpen setTitleColor:[UIColor blackColor] forState:UIControlStateNormal];
     [btnOpen addTarget:self action:@selector(toggleMenu) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:btnOpen];
 
-    // Khung Menu
+    // Menu chính
     self.menuView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 260, 220)];
     self.menuView.center = self.view.center;
-    self.menuView.backgroundColor = [UIColor colorWithRed:0 green:0 blue:0.1 alpha:0.9];
+    self.menuView.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.85];
     self.menuView.layer.cornerRadius = 15;
     self.menuView.layer.borderWidth = 1.5;
     self.menuView.layer.borderColor = [UIColor cyanColor].CGColor;
@@ -50,19 +51,18 @@ void safe_patch(uintptr_t offset, const char *bytes, size_t len) {
     [self.view addSubview:self.menuView];
 
     UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(0, 10, 260, 40)];
-    title.text = @"DUC QUYET x UNITY";
+    title.text = @"DUC QUYET MOD";
     title.textColor = [UIColor cyanColor];
     title.textAlignment = NSTextAlignmentCenter;
     [self.menuView addSubview:title];
 
-    [self addSwitch:@"Hack Map Sáng" y:70 action:@selector(toggleMap:)];
-    [self addSwitch:@"Anten Cao" y:130 action:@selector(toggleAnten:)];
+    [self addHack:@"Hack Map" y:70 action:@selector(swMap:)];
+    [self addHack:@"Anten" y:130 action:@selector(swAnten:)];
 }
 
-- (void)addSwitch:(NSString *)text y:(CGFloat)y action:(SEL)sel {
+- (void)addHack:(NSString *)text y:(CGFloat)y action:(SEL)sel {
     UILabel *lbl = [[UILabel alloc] initWithFrame:CGRectMake(20, y, 150, 30)];
-    lbl.text = text;
-    lbl.textColor = [UIColor whiteColor];
+    lbl.text = text; lbl.textColor = [UIColor whiteColor];
     [self.menuView addSubview:lbl];
 
     UISwitch *sw = [[UISwitch alloc] initWithFrame:CGRectMake(190, y, 0, 0)];
@@ -72,47 +72,47 @@ void safe_patch(uintptr_t offset, const char *bytes, size_t len) {
 
 - (void)toggleMenu { self.menuView.hidden = !self.menuView.hidden; }
 
-- (void)toggleMap:(UISwitch *)sender {
-    if (sender.isOn) {
-        safe_patch(OFFSET_MAP_FOG, "\x00\x00\x80\xD2\xC0\x03\x5F\xD6", 8);
-    }
-}
-
-- (void)toggleAnten:(UISwitch *)sender {
-    if (sender.isOn) {
-        safe_patch(OFFSET_ANTEN_VAL, "\x00\x00\xA0\x43", 4);
-    }
-}
+- (void)swMap:(UISwitch *)s { if(s.isOn) safe_patch(OFFSET_MAP_FOG, "\x00\x00\x80\xD2\xC0\x03\x5F\xD6", 8); }
+- (void)swAnten:(UISwitch *)s { if(s.isOn) safe_patch(OFFSET_ANTEN_VAL, "\x00\x00\xA0\x43", 4); }
 @end
 
-// --- HOOK VÀO UNITY ---
+// --- HOOK VÀO GAME (CHỈNH SỬA CHỐNG VĂNG) ---
 %hook UnityAppController
 - (void)applicationDidBecomeActive:(UIApplication *)application {
     %orig;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        // Delay 12 giây cho an toàn nhất
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(12 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        // Tăng delay lên 15 giây - Chờ game load xong hẳn UI chính
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(15 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             
-            // CÁCH LẤY WINDOW MỚI (Sửa lỗi keyWindow deprecated)
+            // Cách khởi tạo Window an toàn nhất cho mọi đời iOS
             UIWindow *win = nil;
+            UIWindowScene *activeScene = nil;
             if (@available(iOS 13.0, *)) {
-                for (UIWindowScene* scene in [UIApplication sharedApplication].connectedScenes) {
-                    if (scene.activationState == UISceneActivationStateForegroundActive) {
-                        win = [[UIWindow alloc] initWithWindowScene:scene];
+                for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+                    if (scene.activationState == UISceneActivationStateForegroundActive && [scene isKindOfClass:[UIWindowScene class]]) {
+                        activeScene = (UIWindowScene *)scene;
                         break;
                     }
                 }
             }
-            if (!win) win = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
 
-            win.rootViewController = [[DQProController alloc] init];
-            win.windowLevel = UIWindowLevelAlert + 1;
-            win.backgroundColor = [UIColor clearColor];
-            [win makeKeyAndVisible];
-            
-            static char dq_key;
-            objc_setAssociatedObject(application, &dq_key, win, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            if (activeScene) {
+                win = [[UIWindow alloc] initWithWindowScene:activeScene];
+            } else {
+                win = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
+            }
+
+            if (win) {
+                win.rootViewController = [[DQProController alloc] init];
+                win.windowLevel = UIWindowLevelAlert + 1;
+                win.backgroundColor = [UIColor clearColor];
+                [win makeKeyAndVisible];
+                
+                static char dq_key;
+                objc_setAssociatedObject(application, &dq_key, win, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+                NSLog(@"[DQ] Menu Loaded Successfully!");
+            }
         });
     });
 }
