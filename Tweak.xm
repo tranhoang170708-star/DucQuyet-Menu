@@ -1,105 +1,108 @@
 #import <UIKit/UIKit.h>
 #import <mach-o/dyld.h>
 #import <substrate.h>
+#import <objc/runtime.h>
 
-// --- CẤU TRÚC PATCH BỘ NHỚ CỦA LONGNGUYEN ---
+// --- CẤU TRÚC PATCH BỘ NHỚ ---
 uintptr_t get_BaseAddress() {
     return (uintptr_t)_dyld_get_image_header(0);
 }
 
-// Hàm ghi đè byte (giống cách CodePatch trong file bạn gửi)
 void patch_bytes(uintptr_t offset, const char *bytes, size_t len) {
     uintptr_t address = get_BaseAddress() + offset;
     MSHookMemory((void *)address, bytes, len);
 }
 
-// --- OFFSETS LỌC TỪ LONGNGUYEN.DYLIB ---
-// Lưu ý: Các số này dựa trên phân tích cấu trúc hàm render của game Unity
-#define OFFSET_MAP_FOG    0x1D2C4A0  // Địa chỉ xử lý sương mù (Fog)
-#define OFFSET_ANTEN_VAL  0x2E1A5C4  // Địa chỉ xử lý độ cao nhân vật (Anten)
-
-static BOOL isMapHackOn = NO;
+// --- OFFSETS (Lấy từ longnguyen.dylib) ---
+#define OFFSET_MAP_FOG    0x1D2C4A0
+#define OFFSET_ANTEN_VAL  0x2E1A5C4
 
 @interface DQProController : UIViewController
+@property (nonatomic, strong) UIView *menuView;
 @end
 
 @implementation DQProController
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    
-    // Tạo giao diện giống file gốc (Nền tối, viền neon)
-    UIView *menu = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 280, 350)];
-    menu.center = self.view.center;
-    menu.backgroundColor = [UIColor colorWithRed:0.05 green:0.05 blue:0.1 alpha:0.95];
-    menu.layer.borderColor = [UIColor cyanColor].CGColor;
-    menu.layer.borderWidth = 1.5;
-    menu.layer.cornerRadius = 10;
-    [self.view addSubview:menu];
+
+    // Nút nổi (Floating Button) để mở Menu
+    UIButton *btnOpen = [UIButton buttonWithType:UIButtonTypeCustom];
+    btnOpen.frame = CGRectMake(10, 100, 50, 50);
+    btnOpen.backgroundColor = [UIColor cyanColor];
+    btnOpen.layer.cornerRadius = 25;
+    [btnOpen setTitle:@"DQ" forState:UIControlStateNormal];
+    [btnOpen setTitleColor:[UIColor blackColor] forState:UIControlStateNormal];
+    [btnOpen addTarget:self action:@selector(toggleMenu) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:btnOpen];
+
+    // Khung Menu chính
+    self.menuView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 280, 250)];
+    self.menuView.center = self.view.center;
+    self.menuView.backgroundColor = [UIColor colorWithRed:0.05 green:0.05 blue:0.1 alpha:0.95];
+    self.menuView.layer.borderColor = [UIColor cyanColor].CGColor;
+    self.menuView.layer.borderWidth = 1.5;
+    self.menuView.layer.cornerRadius = 10;
+    self.menuView.hidden = YES; // Mặc định ẩn, bấm nút mới hiện
+    [self.view addSubview:self.menuView];
 
     UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(0, 10, 280, 40)];
     title.text = @"DUC QUYET x LONG NGUYEN";
     title.textColor = [UIColor cyanColor];
     title.textAlignment = NSTextAlignmentCenter;
-    [menu addSubview:title];
+    title.font = [UIFont boldSystemFontOfSize:16];
+    [self.menuView addSubview:title];
 
-    // CHỨC NĂNG 1: HACK MAP SÁNG
-    UISwitch *swMap = [[UISwitch alloc] initWithFrame:CGRectMake(210, 80, 0, 0)];
-    [swMap addTarget:self action:@selector(toggleMap:) forControlEvents:UIControlEventValueChanged];
-    [menu addSubview:swMap];
-
-    UILabel *lMap = [[UILabel alloc] initWithFrame:CGRectMake(20, 80, 180, 30)];
-    lMap.text = @"Hack Map Sáng (Fog)";
-    lMap.textColor = [UIColor whiteColor];
-    [menu addSubview:lMap];
-
-    // CHỨC NĂNG 2: ANTEN (HIỆN VỊ TRÍ)
-    UISwitch *swAnten = [[UISwitch alloc] initWithFrame:CGRectMake(210, 130, 0, 0)];
-    [swAnten addTarget:self action:@selector(toggleAnten:) forControlEvents:UIControlEventValueChanged];
-    [menu addSubview:swAnten];
-
-    UILabel *lAnten = [[UILabel alloc] initWithFrame:CGRectMake(20, 130, 180, 30)];
-    lAnten.text = @"Hiện Anten Dài";
-    lAnten.textColor = [UIColor whiteColor];
-    [menu addSubview:lAnten];
+    // Chức năng Hack Map
+    [self createSwitchWithLabel:@"Hack Map Sáng" y:70 action:@selector(toggleMap:) inView:self.menuView];
+    
+    // Chức năng Anten
+    [self createSwitchWithLabel:@"Hiện Anten Dài" y:120 action:@selector(toggleAnten:) inView:self.menuView];
 }
 
-// LOGIC HACK MAP (Ghi đè lệnh RET để vô hiệu hóa sương mù)
+- (void)toggleMenu {
+    self.menuView.hidden = !self.menuView.hidden;
+}
+
+- (void)createSwitchWithLabel:(NSString *)text y:(CGFloat)y action:(SEL)action inView:(UIView *)view {
+    UILabel *lbl = [[UILabel alloc] initWithFrame:CGRectMake(20, y, 180, 30)];
+    lbl.text = text;
+    lbl.textColor = [UIColor whiteColor];
+    [view addSubview:lbl];
+
+    UISwitch *sw = [[UISwitch alloc] initWithFrame:CGRectMake(210, y, 0, 0)];
+    sw.onTintColor = [UIColor cyanColor];
+    [sw addTarget:self action:action forControlEvents:UIControlEventValueChanged];
+    [view addSubview:sw];
+}
+
 - (void)toggleMap:(UISwitch *)sender {
     if (sender.isOn) {
-        // Ghi đè mã máy: MOV W0, #0 | RET (Vô hiệu hóa Fog)
         patch_bytes(OFFSET_MAP_FOG, "\x00\x00\x80\xD2\xC0\x03\x5F\xD6", 8);
-    } else {
-        // Bạn cần reset game để mất hiệu ứng hoặc lưu byte gốc
     }
 }
 
 - (void)toggleAnten:(UISwitch *)sender {
     if (sender.isOn) {
-        // Ghi đè giá trị Anten
-        patch_bytes(OFFSET_ANTEN_VAL, "\x00\x00\xA0\x43", 4); // Float value cao
+        patch_bytes(OFFSET_ANTEN_VAL, "\x00\x00\xA0\x43", 4);
     }
 }
 @end
 
-// --- HOOK KHỞI CHẠY ---
 %hook UnityAppController
 - (void)applicationDidBecomeActive:(UIApplication *)application {
     %orig;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(8 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             UIWindow *win = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
             win.rootViewController = [[DQProController alloc] init];
             win.windowLevel = UIWindowLevelAlert + 1;
             win.backgroundColor = [UIColor clearColor];
             [win makeKeyAndVisible];
             
-            // SỬA LỖI TẠI ĐÂY: Sử dụng một biến static char làm Key
-            static char dq_window_key; 
+            static char dq_window_key;
             objc_setAssociatedObject(application, &dq_window_key, win, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-            
-            NSLog(@"[DQ] Menu Pro Ready with Map Hack!");
         });
     });
 }
