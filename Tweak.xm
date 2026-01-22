@@ -3,7 +3,7 @@
 #import <substrate.h>
 #import <objc/runtime.h>
 
-// --- HÀM PATCH BYTE ---
+// --- HÀM PATCH BYTE AN TOÀN ---
 void apply_patch(uintptr_t offset, const char *bytes, size_t len) {
     uintptr_t base = (uintptr_t)_dyld_get_image_header(0);
     if (base == 0) return;
@@ -25,7 +25,6 @@ void apply_patch(uintptr_t offset, const char *bytes, size_t len) {
     if (self) {
         self.userInteractionEnabled = YES;
         
-        // Nút mở Menu nhỏ gọn
         UIButton *btn = [UIButton buttonWithType:UIButtonTypeCustom];
         btn.frame = CGRectMake(20, 100, 45, 45);
         btn.backgroundColor = [UIColor cyanColor];
@@ -35,7 +34,6 @@ void apply_patch(uintptr_t offset, const char *bytes, size_t len) {
         [btn addTarget:self action:@selector(toggle) forControlEvents:UIControlEventTouchUpInside];
         [self addSubview:btn];
 
-        // Bảng chức năng
         self.panel = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 220, 160)];
         self.panel.center = CGPointMake(frame.size.width/2, frame.size.height/2);
         self.panel.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.9];
@@ -64,7 +62,6 @@ void apply_patch(uintptr_t offset, const char *bytes, size_t len) {
 - (void)s1:(UISwitch*)s { if(s.isOn) apply_patch(OFF_MAP, "\x00\x00\x80\xD2\xC0\x03\x5F\xD6", 8); }
 - (void)s2:(UISwitch*)s { if(s.isOn) apply_patch(OFF_ANTEN, "\x00\x00\xA0\x43", 4); }
 
-// Cho phép bấm xuyên qua vùng trống của Menu
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
     UIView *hitView = [super hitTest:point withEvent:event];
     if (hitView == self) return nil;
@@ -72,26 +69,31 @@ void apply_patch(uintptr_t offset, const char *bytes, size_t len) {
 }
 @end
 
-// --- KHỞI TẠO SIÊU CHẬM (VƯỢT LOGO) ---
+// --- KHỞI TẠO (VƯỢT LOGO & FIX DEPRECATED) ---
 static __attribute__((constructor)) void dq_entry() {
-    // Đợi hẳn 25 giây cho game vào tận Sảnh/Match rồi mới nạp
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(25 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         
         UIWindow *mainWin = nil;
+        // Cách lấy Window chuẩn cho iOS 13 trở lên (Thay thế cho keyWindow)
         if (@available(iOS 13.0, *)) {
-            for (UIWindowScene *scene in (NSArray *)[UIApplication sharedApplication].connectedScenes) {
-                if (scene.activationState == UISceneActivationStateForegroundActive) {
-                    mainWin = scene.windows.firstObject;
+            NSSet *scenes = [[UIApplication sharedApplication] connectedScenes];
+            for (UIScene *scene in scenes) {
+                if ([scene isKindOfClass:[UIWindowScene class]] && scene.activationState == UISceneActivationStateForegroundActive) {
+                    mainWin = [(UIWindowScene *)scene windows].firstObject;
                     break;
                 }
             }
         }
-        if (!mainWin) mainWin = [UIApplication sharedApplication].keyWindow;
+        
+        // Nếu không lấy được theo Scene (iOS cũ), lấy theo windows[0]
+        if (!mainWin) {
+            mainWin = [[UIApplication sharedApplication] windows].firstObject;
+        }
         
         if (mainWin) {
             DQMenu *menu = [[DQMenu alloc] initWithFrame:mainWin.bounds];
             [mainWin addSubview:menu];
-            NSLog(@"[DQ] Menu injected successfully after 25s");
+            NSLog(@"[DQ] Menu Loaded Successfully!");
         }
     });
 }
