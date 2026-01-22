@@ -1,64 +1,77 @@
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
 
-@interface DQMenu : UIView
+@interface DucQuyetMenu : UIView
 @end
 
-@implementation DQMenu {
-    UIView *_container;
+@implementation DucQuyetMenu {
+    UIButton *_menuBtn;
+    UIView *_panel;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];
     if (self) {
         self.userInteractionEnabled = YES;
-        self.layer.zPosition = 9999; // Lớp rất cao
+        self.layer.zPosition = 1000000; // Ép lên trên cùng
 
-        // Nút Menu nhỏ ở góc
-        UIButton *mainBtn = [UIButton buttonWithType:UIButtonTypeCustom];
-        mainBtn.frame = CGRectMake(20, 100, 50, 50);
-        mainBtn.backgroundColor = [UIColor redColor];
-        mainBtn.layer.cornerRadius = 25;
-        [mainBtn setTitle:@"M" forState:UIControlStateNormal];
-        [mainBtn addTarget:self action:@selector(toggleMenu) forControlEvents:UIControlEventTouchUpInside];
-        [self addSubview:mainBtn];
+        // Nút tròn mở Menu
+        _menuBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+        _menuBtn.frame = CGRectMake(40, 100, 60, 60);
+        _menuBtn.backgroundColor = [UIColor colorWithRed:1.0 green:0.2 blue:0.2 alpha:0.8];
+        _menuBtn.layer.cornerRadius = 30;
+        [_menuBtn setTitle:@"QUYẾT" forState:UIControlStateNormal];
+        [_menuBtn addTarget:self action:@selector(toggle) forControlEvents:UIControlEventTouchUpInside];
+        [self addSubview:_menuBtn];
 
-        // Khung chức năng (ẩn lúc đầu)
-        _container = [[UIView alloc] initWithFrame:CGRectMake(80, 100, 180, 100)];
-        _container.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.8];
-        _container.layer.cornerRadius = 10;
-        _container.hidden = YES;
-        [self addSubview:_container];
+        // Khung Menu chức năng
+        _panel = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 250, 200)];
+        _panel.center = self.center;
+        _panel.backgroundColor = [UIColor colorWithWhite:0 alpha:0.9];
+        _panel.layer.cornerRadius = 15;
+        _panel.hidden = YES;
+        [self addSubview:_panel];
 
-        UILabel *lbl = [[UILabel alloc] initWithFrame:CGRectMake(0, 20, 180, 30)];
-        lbl.text = @"MENU ACTIVE";
-        lbl.textColor = [UIColor whiteColor];
-        lbl.textAlignment = NSTextAlignmentCenter;
-        [_container addSubview:lbl];
+        UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(0, 10, 250, 30)];
+        title.text = @"DUC QUYET MENU";
+        title.textColor = [UIColor yellowColor];
+        title.textAlignment = NSTextAlignmentCenter;
+        [_panel addSubview:title];
     }
     return self;
 }
 
-- (void)toggleMenu { _container.hidden = !_container.hidden; }
+- (void)toggle { _panel.hidden = !_panel.hidden; }
 
-// Quan trọng: Cho phép chạm xuyên qua lớp nền của UIView
+// Quan trọng: Không cho menu chặn cảm ứng của game
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
-    UIView *hitView = [super hitTest:point withEvent:event];
-    if (hitView == self) return nil;
-    return hitView;
+    UIView *hit = [super hitTest:point withEvent:event];
+    if (hit == self) return nil;
+    return hit;
 }
 @end
 
-// Hook vào quá trình khởi tạo ứng dụng để nạp Menu ngay
-%hook UnityAppController
-
-- (void)applicationDidBecomeActive:(id)arg1 {
-    %orig;
-    UIWindow *keyWin = [UIApplication sharedApplication].keyWindow;
-    if (keyWin && ![keyWin viewWithTag:7777]) {
-        DQMenu *menu = [[DQMenu alloc] initWithFrame:keyWin.bounds];
-        menu.tag = 7777;
-        [keyWin addSubview:menu];
+// Hàm nạp menu vào Window
+static void SetupMenu() {
+    UIWindow *win = [UIApplication sharedApplication].keyWindow;
+    if (win && ![win viewWithTag:178178]) {
+        DucQuyetMenu *m = [[DucQuyetMenu alloc] initWithFrame:win.bounds];
+        m.tag = 178178;
+        [win addSubview:m];
     }
 }
-%end
+
+%ctor {
+    // Lắng nghe sự kiện ngay khi Window của game xuất hiện
+    [[NSNotificationCenter defaultCenter] addObserverForName:UIWindowDidBecomeKeyNotification 
+                                                      object:nil 
+                                                       queue:[NSOperationQueue mainQueue] 
+                                                  usingBlock:^(NSNotification *note) {
+        SetupMenu();
+    }];
+    
+    // Dự phòng: Ép chạy sau 5 giây nếu sự kiện trên bị lỡ
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+        SetupMenu();
+    });
+}
