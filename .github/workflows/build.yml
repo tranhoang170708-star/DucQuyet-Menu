@@ -11,27 +11,32 @@ jobs:
         run: |
           export THEOS=/opt/theos
           sudo rm -rf $THEOS
-          sudo git clone https://github.com/theos/theos.git $THEOS
+          
+          # Sử dụng --depth=1 để tải nhẹ hơn, tránh lỗi HTTP 500
+          sudo git clone --depth=1 https://github.com/theos/theos.git $THEOS
+          
           cd $THEOS
-          sudo git submodule update --init --recursive
+          # Tải submodule cũng với depth=1 để tối ưu dung lượng
+          sudo git submodule update --init --recursive --depth=1
           sudo chown -R $(id -u):$(id -g) $THEOS
           
           brew install ldid
           
+          # Cài đặt SDK
           if [ ! -d "$THEOS/sdks" ] || [ -z "$(ls -A $THEOS/sdks)" ]; then
             sudo rm -rf $THEOS/sdks
-            git clone https://github.com/theos/sdks.git $THEOS/sdks
+            git clone --depth=1 https://github.com/theos/sdks.git $THEOS/sdks
           fi
 
       - name: Compile
         run: |
           export THEOS=/opt/theos
-          # Lệnh quan trọng: Tạo thư mục .theos trước để tránh lỗi build_session
+          # Tạo môi trường build sạch
           mkdir -p .theos/obj
           touch .theos/build_session
           
           make clean
-          # Sử dụng lệnh biên dịch tiêu chuẩn, ép kiến trúc arm64
+          # Ép kiến trúc arm64 cho iPhone
           make package FINALPACKAGE=1 ARCHS="arm64 arm64e"
         continue-on-error: true
 
