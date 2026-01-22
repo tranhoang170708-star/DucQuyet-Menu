@@ -1,0 +1,21 @@
+name: Build-DucQuyet-Dylib
+on: [push]
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Theos
+        run: |
+          export THEOS=/opt/theos
+          sudo git clone --recursive https://github.com/theos/theos.git $THEOS
+          git clone https://github.com/theos/sdks.git $THEOS/sdks
+      - name: Compile
+        run: |
+          export THEOS=/opt/theos
+          make package
+      - name: Upload Dylib
+        uses: actions/upload-artifact@v3
+        with:
+          name: Menu-DucQuyet-Cua-Ban
+          path: .theos/obj/debug/*.dylib
