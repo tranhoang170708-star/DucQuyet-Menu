@@ -8,6 +8,8 @@ include $(THEOS)/makefiles/common.mk
 TWEAK_NAME = DucQuyetMenu
 DucQuyetMenu_FILES = Tweak.xm
 DucQuyetMenu_CFLAGS = -fobjc-arc
+# THÊM substrate VÀO ĐÂY
+DucQuyetMenu_LIBRARIES = substrate
 DucQuyetMenu_FRAMEWORKS = UIKit CoreGraphics QuartzCore
 
 include $(THEOS)/makefiles/tweak.mk
