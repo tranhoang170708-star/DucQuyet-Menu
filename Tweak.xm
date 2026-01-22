@@ -1,5 +1,8 @@
 #import <UIKit/UIKit.h>
-#include "imgui.h" // Thư viện vẽ giao diện
+
+// Gọi các file trong thư mục ImGui
+#include "gui/imgui.h"
+#include "gui/imgui_internal.h"
 
 // Biến lưu trạng thái bật tắt
 bool show_menu = true;
