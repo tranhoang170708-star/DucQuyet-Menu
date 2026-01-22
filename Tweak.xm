@@ -3,117 +3,83 @@
 #import <substrate.h>
 #import <objc/runtime.h>
 
-// --- KIỂM TRA ĐỊA CHỈ TRƯỚC KHI PATCH ---
-uintptr_t get_BaseAddress() {
-    return (uintptr_t)_dyld_get_image_header(0);
+// --- LẤY BASE ADDRESS CHẬM (CHỈ KHI CẦN) ---
+static uintptr_t _baseAddr = 0;
+uintptr_t getBase() {
+    if (_baseAddr == 0) _baseAddr = (uintptr_t)_dyld_get_image_header(0);
+    return _baseAddr;
 }
 
-void safe_patch(uintptr_t offset, const char *bytes, size_t len) {
-    uintptr_t address = get_BaseAddress() + offset;
-    // Kiểm tra vùng nhớ ARM64 hợp lệ (thường > 0x100000000)
-    if (address < 0x100000000) return; 
-    
-    // Sử dụng mprotect nội bộ của MSHookMemory
-    MSHookMemory((void *)address, bytes, len);
+// --- HÀM PATCH KHÔNG ĐỂ LẠI DẤU VẾT ---
+void silent_patch(uintptr_t offset, const char *bytes, size_t len) {
+    uintptr_t addr = getBase() + offset;
+    if (addr > 0x100000000) {
+        MSHookMemory((void *)addr, bytes, len);
+    }
 }
 
-// --- OFFSETS ---
-// Nếu game cập nhật, 2 số này là nguyên nhân gây văng 
-#define OFFSET_MAP_FOG    0x1D2C4A0 
-#define OFFSET_ANTEN_VAL  0x2E1A5C4
+#define OFF_MAP 0x1D2C4A0 
+#define OFF_ANTEN 0x2E1A5C4
 
-@interface DQProController : UIViewController
-@property (nonatomic, strong) UIView *menuView;
+@interface DQController : UIViewController
+@property (nonatomic, strong) UIView *box;
 @end
 
-@implementation DQProController
-
+@implementation DQController
 - (void)viewDidLoad {
     [super viewDidLoad];
+    
+    // Tạo một nút rất nhỏ ở góc màn hình để tránh bị phát hiện UI
+    UIButton *btn = [UIButton buttonWithType:UIButtonTypeCustom];
+    btn.frame = CGRectMake(10, 150, 40, 40);
+    btn.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.5];
+    btn.layer.cornerRadius = 20;
+    [btn setTitle:@"M" forState:UIControlStateNormal];
+    [btn addTarget:self action:@selector(showM) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:btn];
 
-    // Nút nổi mở menu (Sử dụng UIButtonTypeSystem cho nhẹ)
-    UIButton *btnOpen = [UIButton buttonWithType:UIButtonTypeSystem];
-    btnOpen.frame = CGRectMake(30, 150, 50, 50);
-    btnOpen.backgroundColor = [UIColor cyanColor];
-    btnOpen.layer.cornerRadius = 25;
-    [btnOpen setTitle:@"DQ" forState:UIControlStateNormal];
-    [btnOpen addTarget:self action:@selector(toggleMenu) forControlEvents:UIControlEventTouchUpInside];
-    [self.view addSubview:btnOpen];
+    self.box = [[UIView alloc] initWithFrame:CGRectMake(0,0,220,150)];
+    self.box.center = self.view.center;
+    self.box.backgroundColor = [UIColor colorWithRed:0.1 green:0.1 blue:0.1 alpha:0.95];
+    self.box.layer.cornerRadius = 8;
+    self.box.hidden = YES;
+    [self.view addSubview:self.box];
 
-    // Menu chính
-    self.menuView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 260, 220)];
-    self.menuView.center = self.view.center;
-    self.menuView.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.85];
-    self.menuView.layer.cornerRadius = 15;
-    self.menuView.layer.borderWidth = 1.5;
-    self.menuView.layer.borderColor = [UIColor cyanColor].CGColor;
-    self.menuView.hidden = YES;
-    [self.view addSubview:self.menuView];
-
-    UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(0, 10, 260, 40)];
-    title.text = @"DUC QUYET MOD";
-    title.textColor = [UIColor cyanColor];
-    title.textAlignment = NSTextAlignmentCenter;
-    [self.menuView addSubview:title];
-
-    [self addHack:@"Hack Map" y:70 action:@selector(swMap:)];
-    [self addHack:@"Anten" y:130 action:@selector(swAnten:)];
+    [self addS:@"Map" y:40 s:@selector(m1:)];
+    [self addS:@"Anten" y:90 s:@selector(m2:)];
 }
 
-- (void)addHack:(NSString *)text y:(CGFloat)y action:(SEL)sel {
-    UILabel *lbl = [[UILabel alloc] initWithFrame:CGRectMake(20, y, 150, 30)];
-    lbl.text = text; lbl.textColor = [UIColor whiteColor];
-    [self.menuView addSubview:lbl];
-
-    UISwitch *sw = [[UISwitch alloc] initWithFrame:CGRectMake(190, y, 0, 0)];
-    [sw addTarget:self action:sel forControlEvents:UIControlEventValueChanged];
-    [self.menuView addSubview:sw];
+- (void)addS:(NSString*)t y:(float)y s:(SEL)s {
+    UILabel *l = [[UILabel alloc] initWithFrame:CGRectMake(15,y,100,30)];
+    l.text = t; l.textColor = [UIColor cyanColor];
+    [self.box addSubview:l];
+    UISwitch *sw = [[UISwitch alloc] initWithFrame:CGRectMake(150,y,0,0)];
+    [sw addTarget:self action:s forControlEvents:UIControlEventValueChanged];
+    [self.box addSubview:sw];
 }
 
-- (void)toggleMenu { self.menuView.hidden = !self.menuView.hidden; }
-
-- (void)swMap:(UISwitch *)s { if(s.isOn) safe_patch(OFFSET_MAP_FOG, "\x00\x00\x80\xD2\xC0\x03\x5F\xD6", 8); }
-- (void)swAnten:(UISwitch *)s { if(s.isOn) safe_patch(OFFSET_ANTEN_VAL, "\x00\x00\xA0\x43", 4); }
+- (void)showM { self.box.hidden = !self.box.hidden; }
+- (void)m1:(UISwitch*)s { if(s.isOn) silent_patch(OFF_MAP, "\x00\x00\x80\xD2\xC0\x03\x5F\xD6", 8); }
+- (void)m2:(UISwitch*)s { if(s.isOn) silent_patch(OFF_ANTEN, "\x00\x00\xA0\x43", 4); }
 @end
 
-// --- HOOK VÀO GAME (CHỈNH SỬA CHỐNG VĂNG) ---
-%hook UnityAppController
-- (void)applicationDidBecomeActive:(UIApplication *)application {
+// --- HOOK VÀO GIAI ĐOẠN MUỘN NHẤT CỦA GAME ---
+%hook UIViewController
+- (void)viewDidAppear:(BOOL)animated {
     %orig;
-    static dispatch_once_t once;
-    dispatch_once(&once, ^{
-        // Tăng delay lên 15 giây - Chờ game load xong hẳn UI chính
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(15 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            
-            // Cách khởi tạo Window an toàn nhất cho mọi đời iOS
-            UIWindow *win = nil;
-            UIWindowScene *activeScene = nil;
-            if (@available(iOS 13.0, *)) {
-                for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
-                    if (scene.activationState == UISceneActivationStateForegroundActive && [scene isKindOfClass:[UIWindowScene class]]) {
-                        activeScene = (UIWindowScene *)scene;
-                        break;
-                    }
-                }
-            }
-
-            if (activeScene) {
-                win = [[UIWindow alloc] initWithWindowScene:activeScene];
-            } else {
-                win = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
-            }
-
-            if (win) {
-                win.rootViewController = [[DQProController alloc] init];
-                win.windowLevel = UIWindowLevelAlert + 1;
-                win.backgroundColor = [UIColor clearColor];
-                [win makeKeyAndVisible];
-                
-                static char dq_key;
-                objc_setAssociatedObject(application, &dq_key, win, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-                NSLog(@"[DQ] Menu Loaded Successfully!");
-            }
+    // Kiểm tra nếu là màn hình chính của game thì mới nạp Menu
+    NSString *vcName = NSStringFromClass([self class]);
+    if ([vcName containsString:@"Unity"] || [vcName containsString:@"UI"]) {
+        static dispatch_once_t once;
+        dispatch_once(&once, ^{
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(20 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                DQController *menu = [[DQController alloc] init];
+                // Thêm trực tiếp vào View hiện tại của game thay vì tạo Window mới
+                [self addChildViewController:menu];
+                [self.view addSubview:menu.view];
+                [menu didMoveToParentViewController:self];
+            });
         });
-    });
+    }
 }
 %end
