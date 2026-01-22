@@ -13,7 +13,7 @@ jobs:
           sudo git clone --recursive https://github.com/theos/theos.git $THEOS
           sudo chown -R $(id -u):$(id -g) $THEOS
           
-          # Cài đặt ldid để ký tên file (Sửa lỗi command not found)
+          # Cài đặt ldid để ký tên (fix lỗi sign dylib)
           brew install ldid
           
           if [ ! -d "$THEOS/sdks" ]; then
@@ -24,10 +24,12 @@ jobs:
         run: |
           export THEOS=/opt/theos
           make clean
-          make package FINALPACKAGE=1
+          # Build dylib mà không bắt buộc phải đóng gói thành deb để tránh lỗi Stage
+          make DucQuyetMenu.all.tweak.variables FINALPACKAGE=1
           
       - name: Upload Dylib
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: DucQuyet-Menu-Dylib
-          path: .theos/obj/*.dylib
+          path: .theos/obj/DucQuyetMenu.dylib
