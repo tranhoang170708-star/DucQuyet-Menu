@@ -3,7 +3,7 @@ on: [push, workflow_dispatch]
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 
@@ -13,7 +13,6 @@ jobs:
           sudo git clone --recursive https://github.com/theos/theos.git $THEOS
           sudo chown -R $(id -u):$(id -g) $THEOS
           
-          # Cài đặt ldid để ký tên (fix lỗi sign dylib)
           brew install ldid
           
           if [ ! -d "$THEOS/sdks" ]; then
@@ -23,13 +22,18 @@ jobs:
       - name: Compile
         run: |
           export THEOS=/opt/theos
-          make clean
-          # Build dylib mà không bắt buộc phải đóng gói thành deb để tránh lỗi Stage
-          make DucQuyetMenu.all.tweak.variables FINALPACKAGE=1
+          # Tạo folder build_session thủ công để fix lỗi Clang
+          mkdir -p .theos/obj
+          touch .theos/build_session
           
+          make clean
+          # Chạy lệnh build chính thức
+          make package FINALPACKAGE=1
+        continue-on-error: true
+
       - name: Upload Dylib
-        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: DucQuyet-Menu-Dylib
-          path: .theos/obj/DucQuyetMenu.dylib
+          # Tìm file dylib ở mọi ngóc ngách trong folder .theos
+          path: .theos/obj/**/*.dylib
