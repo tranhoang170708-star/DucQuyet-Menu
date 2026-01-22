@@ -5,12 +5,11 @@ include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = DucQuyetMenu
 
-# Đã đổi từ ImGui/*.cpp thành gui/*.cpp
+# Lệnh này sẽ tự tìm tất cả file .cpp bên trong folder gui
 DucQuyetMenu_FILES = Tweak.xm $(wildcard gui/*.cpp)
 
-# Thêm các Framework cần thiết để vẽ giao diện
+# Thêm các thư viện hệ thống cần thiết cho iOS
 DucQuyetMenu_FRAMEWORKS = UIKit Foundation CoreGraphics QuartzCore
-# Đã đổi -IImGui thành -Igui
 DucQuyetMenu_CFLAGS = -fobjc-arc -I. -Igui
 
 include $(THEOS_MAKE_PATH)/tweak.mk
