@@ -5,14 +5,19 @@ jobs:
   build:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4 # Nâng cấp lên v4
+      - uses: actions/checkout@v4
 
       - name: Setup Theos
         run: |
           export THEOS=/opt/theos
           sudo git clone --recursive https://github.com/theos/theos.git $THEOS
           sudo chown -R $(id -u):$(id -g) $THEOS
-          git clone https://github.com/theos/sdks.git $THEOS/sdks
+          # Sửa lỗi: Kiểm tra nếu chưa có SDK thì mới tải, tránh bị báo lỗi 'already exists'
+          if [ ! -d "$THEOS/sdks" ]; then
+            git clone https://github.com/theos/sdks.git $THEOS/sdks
+          else
+            echo "SDKs already exist, skipping clone."
+          fi
 
       - name: Compile
         run: |
@@ -21,7 +26,7 @@ jobs:
           make package FINALPACKAGE=1
           
       - name: Upload Dylib
-        uses: actions/upload-artifact@v4 # QUAN TRỌNG: Đổi v3 thành v4 ở đây
+        uses: actions/upload-artifact@v4
         with:
           name: DucQuyet-Menu-Dylib
           path: .theos/obj/*.dylib
