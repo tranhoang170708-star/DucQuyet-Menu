@@ -2,7 +2,7 @@ export THEOS_DEVICE_IP = 127.0.0.1
 export THEOS_DEVICE_PORT = 2222
 
 # Đổi DucQuyetMenu thành tên gì đó vô hại như "SystemSoundFix"
-TWEAK_NAME = SystemSoundFix 
+TWEAK_NAME = longnguyen 
 
 SystemSoundFix_FILES = Tweak.xm
 SystemSoundFix_CFLAGS = -fobjc-arc
