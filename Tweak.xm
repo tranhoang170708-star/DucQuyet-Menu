@@ -1,50 +1,46 @@
 #import <UIKit/UIKit.h>
 #import <mach-o/dyld.h>
 #import <substrate.h>
-#import <objc/runtime.h>
 
-// --- HÀM PATCH BYTE AN TOÀN ---
-void apply_patch(uintptr_t offset, const char *bytes, size_t len) {
+// Hàm ghi đè bộ nhớ sử dụng MS (Chỉ chạy khi bấm nút)
+void patch_bytes(uintptr_t offset, const char *bytes, size_t len) {
     uintptr_t base = (uintptr_t)_dyld_get_image_header(0);
-    if (base == 0) return;
-    uintptr_t address = base + offset;
-    MSHookMemory((void *)address, bytes, len);
+    if (base != 0) {
+        MSHookMemory((void *)(base + offset), bytes, len);
+    }
 }
 
-#define OFF_MAP 0x1D2C4A0 
-#define OFF_ANTEN 0x2E1A5C4
+// --- OFFSETS (Kiểm tra lại xem game có cập nhật không) ---
+#define ADDR_MAP    0x1D2C4A0 
+#define ADDR_ANTEN  0x2E1A5C4
 
 @interface DQMenu : UIView
-@property (nonatomic, strong) UIView *panel;
+@property (nonatomic, strong) UIView *bg;
 @end
 
 @implementation DQMenu
-
 - (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];
     if (self) {
-        self.userInteractionEnabled = YES;
-        
+        // Nút tròn nhỏ mở menu
         UIButton *btn = [UIButton buttonWithType:UIButtonTypeCustom];
-        btn.frame = CGRectMake(20, 100, 45, 45);
-        btn.backgroundColor = [UIColor cyanColor];
-        btn.layer.cornerRadius = 22.5;
+        btn.frame = CGRectMake(10, 120, 40, 40);
+        btn.backgroundColor = [UIColor colorWithRed:0.0 green:1.0 blue:1.0 alpha:0.7];
+        btn.layer.cornerRadius = 20;
         [btn setTitle:@"DQ" forState:UIControlStateNormal];
-        [btn setTitleColor:[UIColor blackColor] forState:UIControlStateNormal];
         [btn addTarget:self action:@selector(toggle) forControlEvents:UIControlEventTouchUpInside];
         [self addSubview:btn];
 
-        self.panel = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 220, 160)];
-        self.panel.center = CGPointMake(frame.size.width/2, frame.size.height/2);
-        self.panel.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.9];
-        self.panel.layer.cornerRadius = 10;
-        self.panel.layer.borderWidth = 1;
-        self.panel.layer.borderColor = [UIColor cyanColor].CGColor;
-        self.panel.hidden = YES;
-        [self addSubview:self.panel];
+        // Khung menu
+        self.bg = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 200, 140)];
+        self.bg.center = CGPointMake(frame.size.width/2, frame.size.height/2);
+        self.bg.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.9];
+        self.bg.layer.cornerRadius = 10;
+        self.bg.hidden = YES;
+        [self addSubview:self.bg];
 
-        [self addS:@"Map Sáng" y:30 a:@selector(s1:)];
-        [self addS:@"Anten Cao" y:85 a:@selector(s2:)];
+        [self addS:@"Hack Map" y:30 a:@selector(s1:)];
+        [self addS:@"Anten" y:80 a:@selector(s2:)];
     }
     return self;
 }
@@ -52,48 +48,39 @@ void apply_patch(uintptr_t offset, const char *bytes, size_t len) {
 - (void)addS:(NSString*)t y:(float)y a:(SEL)a {
     UILabel *l = [[UILabel alloc] initWithFrame:CGRectMake(15, y, 100, 30)];
     l.text = t; l.textColor = [UIColor whiteColor];
-    [self.panel addSubview:l];
-    UISwitch *sw = [[UISwitch alloc] initWithFrame:CGRectMake(150, y, 0, 0)];
-    [sw addTarget:self action:a forControlEvents:UIControlEventValueChanged];
-    [self.panel addSubview:sw];
+    [self.bg addSubview:l];
+    UISwitch *s = [[UISwitch alloc] initWithFrame:CGRectMake(130, y, 0, 0)];
+    [s addTarget:self action:a forControlEvents:UIControlEventValueChanged];
+    [self.bg addSubview:s];
 }
 
-- (void)toggle { self.panel.hidden = !self.panel.hidden; }
-- (void)s1:(UISwitch*)s { if(s.isOn) apply_patch(OFF_MAP, "\x00\x00\x80\xD2\xC0\x03\x5F\xD6", 8); }
-- (void)s2:(UISwitch*)s { if(s.isOn) apply_patch(OFF_ANTEN, "\x00\x00\xA0\x43", 4); }
+- (void)toggle { self.bg.hidden = !self.bg.hidden; }
+- (void)s1:(UISwitch*)s { if(s.isOn) patch_bytes(ADDR_MAP, "\x00\x00\x80\xD2\xC0\x03\x5F\xD6", 8); }
+- (void)s2:(UISwitch*)s { if(s.isOn) patch_bytes(ADDR_ANTEN, "\x00\x00\xA0\x43", 4); }
 
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
     UIView *hitView = [super hitTest:point withEvent:event];
-    if (hitView == self) return nil;
-    return hitView;
+    return (hitView == self) ? nil : hitView;
 }
 @end
 
-// --- KHỞI TẠO (VƯỢT LOGO & FIX DEPRECATED) ---
-static __attribute__((constructor)) void dq_entry() {
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(25 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        
-        UIWindow *mainWin = nil;
-        // Cách lấy Window chuẩn cho iOS 13 trở lên (Thay thế cho keyWindow)
+// Constructor nạp Menu sau 30 giây - TUYỆT ĐỐI KHÔNG DÙNG %HOOK
+static __attribute__((constructor)) void start_dq_service() {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(30 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        UIWindow *targetWin = nil;
         if (@available(iOS 13.0, *)) {
-            NSSet *scenes = [[UIApplication sharedApplication] connectedScenes];
-            for (UIScene *scene in scenes) {
+            for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
                 if ([scene isKindOfClass:[UIWindowScene class]] && scene.activationState == UISceneActivationStateForegroundActive) {
-                    mainWin = [(UIWindowScene *)scene windows].firstObject;
+                    targetWin = ((UIWindowScene *)scene).windows.firstObject;
                     break;
                 }
             }
         }
-        
-        // Nếu không lấy được theo Scene (iOS cũ), lấy theo windows[0]
-        if (!mainWin) {
-            mainWin = [[UIApplication sharedApplication] windows].firstObject;
-        }
-        
-        if (mainWin) {
-            DQMenu *menu = [[DQMenu alloc] initWithFrame:mainWin.bounds];
-            [mainWin addSubview:menu];
-            NSLog(@"[DQ] Menu Loaded Successfully!");
+        if (!targetWin) targetWin = [UIApplication sharedApplication].windows.firstObject;
+
+        if (targetWin) {
+            DQMenu *menu = [[DQMenu alloc] initWithFrame:targetWin.bounds];
+            [targetWin addSubview:menu];
         }
     });
 }
