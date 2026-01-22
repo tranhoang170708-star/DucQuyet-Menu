@@ -3,7 +3,7 @@
 #import <mach/mach.h>
 #import <objc/runtime.h>
 
-// Hàm Patch bộ nhớ thuần (Lách soi dylib)
+// Hàm Patch bộ nhớ thuần
 void aov_patch(uintptr_t off, const char *data, size_t sz) {
     uintptr_t addr = (uintptr_t)_dyld_get_image_header(0) + off;
     mach_port_t t = mach_task_self();
@@ -23,9 +23,8 @@ void aov_patch(uintptr_t off, const char *data, size_t sz) {
     self = [super initWithFrame:frame];
     if (self) {
         self.userInteractionEnabled = YES;
-        self.layer.zPosition = 100000; // Cực cao để đè lên UI của game
+        self.layer.zPosition = 100000;
 
-        // Nút bấm nhỏ (Màu vàng cho giống màu game)
         UIButton *mainBtn = [UIButton buttonWithType:UIButtonTypeCustom];
         mainBtn.frame = CGRectMake(10, 80, 45, 45);
         mainBtn.backgroundColor = [UIColor colorWithRed:0.85 green:0.75 blue:0.4 alpha:0.8];
@@ -52,27 +51,32 @@ void aov_patch(uintptr_t off, const char *data, size_t sz) {
     return self;
 }
 
+// Đã sửa lỗi: objc_setAssociatedObject (không có dấu gạch dưới)
 - (void)addOpt:(NSString*)n y:(float)y o:(uintptr_t)o d:(const char*)d l:(size_t)l {
     UIButton *b = [UIButton buttonWithType:UIButtonTypeSystem];
     b.frame = CGRectMake(10, y, 200, 40);
     [b setTitle:n forState:UIControlStateNormal];
     [b setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
     [b addTarget:self action:@selector(clicked:) forControlEvents:UIControlEventTouchUpInside];
-    objc_set_associated_object(b, "o", @(o), OBJC_ASSOCIATION_RETAIN);
-    objc_set_associated_object(b, "d", [NSData dataWithBytes:d length:l], OBJC_ASSOCIATION_RETAIN);
+    
+    objc_setAssociatedObject(b, "o", @(o), OBJC_ASSOCIATION_RETAIN);
+    objc_setAssociatedObject(b, "d", [NSData dataWithBytes:d length:l], OBJC_ASSOCIATION_RETAIN);
     [_menuBox addSubview:b];
 }
 
 - (void)toggle { _menuBox.hidden = !_menuBox.hidden; }
+
+// Đã sửa lỗi: objc_getAssociatedObject (không có dấu gạch dưới)
 - (void)clicked:(UIButton*)s {
-    uintptr_t o = [objc_get_associated_object(s, "o") unsignedLongValue];
-    NSData *d = objc_get_associated_object(s, "d");
-    aov_patch(o, (const char *)d.bytes, d.length);
-    [s setTitle:@"KÍCH HOẠT OK!" forState:UIControlStateNormal];
-    [s setTitleColor:[UIColor greenColor] forState:UIControlStateNormal];
+    uintptr_t o = [(NSNumber *)objc_getAssociatedObject(s, "o") unsignedLongValue];
+    NSData *d = (NSData *)objc_getAssociatedObject(s, "d");
+    if (o && d) {
+        aov_patch(o, (const char *)d.bytes, d.length);
+        [s setTitle:@"KÍCH HOẠT OK!" forState:UIControlStateNormal];
+        [s setTitleColor:[UIColor greenColor] forState:UIControlStateNormal];
+    }
 }
 
-// Giúp vẫn chơi được game khi menu đang hiện
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
     UIView *v = [super hitTest:point withEvent:event];
     return (v == self) ? nil : v;
@@ -100,7 +104,6 @@ static void CheckWindow() {
 }
 
 static __attribute__((constructor)) void aov_init() {
-    // Đợi 25 giây để Liên Quân qua hết Logo TiMi/Garena và load sảnh
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 25 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
         CheckWindow();
     });
