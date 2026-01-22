@@ -12,28 +12,26 @@ jobs:
           export THEOS=/opt/theos
           sudo git clone --recursive https://github.com/theos/theos.git $THEOS
           sudo chown -R $(id -u):$(id -g) $THEOS
-          
           brew install ldid
-          
-          if [ ! -d "$THEOS/sdks" ]; then
-            git clone https://github.com/theos/sdks.git $THEOS/sdks
-          fi
+          git clone https://github.com/theos/sdks.git $THEOS/sdks
 
       - name: Compile
         run: |
           export THEOS=/opt/theos
-          # Tạo folder build_session thủ công để fix lỗi Clang
           mkdir -p .theos/obj
           touch .theos/build_session
-          
           make clean
-          # Chạy lệnh build chính thức
-          make package FINALPACKAGE=1
+          # Build chỉ dylib để tránh lỗi stage của debian
+          make DucQuyetMenu.all.tweak.variables FINALPACKAGE=1
         continue-on-error: true
 
-      - name: Upload Dylib
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: DucQuyet-Menu-Dylib
-          # Tìm file dylib ở mọi ngóc ngách trong folder .theos
-          path: .theos/obj/**/*.dylib
+          # Tìm mọi file .dylib có trong các folder build
+          path: |
+            .theos/obj/arm64/*.dylib
+            .theos/obj/arm64e/*.dylib
+            .theos/obj/*.dylib
+          if-no-files-found: error
