@@ -1,30 +1,27 @@
 name: Build-DucQuyet-Dylib
-on: [push, workflow_dispatch] # Cho phép chạy thủ công và chạy khi lưu file
+on: [push, workflow_dispatch]
 
 jobs:
   build:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4 # Nâng cấp lên v4
 
       - name: Setup Theos
         run: |
           export THEOS=/opt/theos
           sudo git clone --recursive https://github.com/theos/theos.git $THEOS
-          # Dòng quan trọng: Cấp quyền để không bị lỗi đỏ
           sudo chown -R $(id -u):$(id -g) $THEOS
           git clone https://github.com/theos/sdks.git $THEOS/sdks
 
       - name: Compile
         run: |
           export THEOS=/opt/theos
-          # Lệnh làm sạch bản cũ trước khi build bản mới
           make clean
           make package FINALPACKAGE=1
           
       - name: Upload Dylib
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4 # QUAN TRỌNG: Đổi v3 thành v4 ở đây
         with:
-          name: DucQuyet-Menu-Output
-          # Đường dẫn này sẽ lấy file .dylib chính xác nhất
+          name: DucQuyet-Menu-Dylib
           path: .theos/obj/*.dylib
