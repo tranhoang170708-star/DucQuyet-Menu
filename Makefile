@@ -6,7 +6,6 @@ TWEAK_NAME = DucQuyetMenu
 
 DucQuyetMenu_FILES = Tweak.xm
 DucQuyetMenu_CFLAGS = -fobjc-arc
-DucQuyetMenu_LIBRARIES = substrate
 DucQuyetMenu_FRAMEWORKS = UIKit CoreGraphics
 
 include $(THEOS)/makefiles/common.mk
