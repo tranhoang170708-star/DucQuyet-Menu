@@ -1,131 +1,114 @@
 #import <UIKit/UIKit.h>
 #import <mach-o/dyld.h>
-#import <mach/mach.h>
 
-// Hàm ghi bộ nhớ nâng cao
-void safe_patch(uintptr_t offset, const char *data, size_t size) {
-    uintptr_t address = (uintptr_t)_dyld_get_image_header(0) + offset;
-    mach_port_t task = mach_task_self();
-    
-    // Cấp quyền ghi
-    if (vm_protect(task, (vm_address_t)address, size, FALSE, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY) == KERN_SUCCESS) {
-        memcpy((void *)address, data, size);
-        // Trả lại quyền thực thi ban đầu
-        vm_protect(task, (vm_address_t)address, size, FALSE, VM_PROT_READ | VM_PROT_EXECUTE);
+// Khai báo biến trạng thái toàn cục
+static BOOL isHackMapEnabled = NO;
+
+// --- Kỹ thuật Hook hàm kiểm tra tầm nhìn ---
+// Giả sử hàm IsVisible(obj) ở địa chỉ 0x1D2C4A0
+// Chúng ta sẽ "đánh tráo" hàm này của game
+BOOL (*old_IsVisible)(void *instance);
+BOOL new_IsVisible(void *instance) {
+    if (isHackMapEnabled) {
+        return YES; // Nếu Bật: Luôn thấy địch
     }
+    return old_IsVisible(instance); // Nếu Tắt: Trả về logic gốc của game
 }
 
 @interface DQMenu : UIView
-@property (nonatomic, strong) UIButton *menuButton;
-@property (nonatomic, strong) UIView *panel;
-@property (nonatomic, strong) UIButton *hackBtn;
+@property (nonatomic, strong) UIButton *btn;
+@property (nonatomic, strong) UIView *box;
 @end
 
-@implementation DQMenu {
-    BOOL _isHackActive;
-}
+@implementation DQMenu
 
 - (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];
     if (self) {
         self.userInteractionEnabled = YES;
         self.tag = 178;
-        self.layer.zPosition = 1000000;
+        self.layer.zPosition = 9999;
 
-        // Nút DQ tròn
-        _menuButton = [UIButton buttonWithType:UIButtonTypeCustom];
-        _menuButton.frame = CGRectMake(50, 150, 60, 60);
-        _menuButton.backgroundColor = [UIColor colorWithRed:0.0 green:0.8 blue:1.0 alpha:0.8];
-        _menuButton.layer.cornerRadius = 30;
-        _menuButton.layer.borderWidth = 2;
-        _menuButton.layer.borderColor = [UIColor whiteColor].CGColor;
-        [_menuButton setTitle:@"DQ" forState:UIControlStateNormal];
-        [_menuButton addTarget:self action:@selector(togglePanel) forControlEvents:UIControlEventTouchUpInside];
+        // Nút tròn DQ (Kéo thả được)
+        _btn = [UIButton buttonWithType:UIButtonTypeCustom];
+        _btn.frame = CGRectMake(60, 160, 55, 55);
+        _btn.backgroundColor = [UIColor colorWithRed:0 green:0.5 blue:1 alpha:0.8];
+        _btn.layer.cornerRadius = 27.5;
+        [_btn setTitle:@"DQ" forState:UIControlStateNormal];
+        _btn.layer.borderWidth = 1.5;
+        _btn.layer.borderColor = [UIColor whiteColor].CGColor;
+        [_btn addTarget:self action:@selector(open) forControlEvents:UIControlEventTouchUpInside];
         
-        UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePan:)];
-        [_menuButton addGestureRecognizer:pan];
-        [self addSubview:_menuButton];
+        UIPanGestureRecognizer *p = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(drag:)];
+        [_btn addGestureRecognizer:p];
+        [self addSubview:_btn];
 
-        // Bảng điều khiển
-        _panel = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 240, 180)];
-        _panel.center = self.center;
-        _panel.backgroundColor = [UIColor blackColor];
-        _panel.layer.cornerRadius = 15;
-        _panel.layer.borderColor = [UIColor cyanColor].CGColor;
-        _panel.layer.borderWidth = 2;
-        _panel.hidden = YES;
-        [self addSubview:_panel];
+        // Bảng Menu
+        _box = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 220, 150)];
+        _box.center = self.center;
+        _box.backgroundColor = [UIColor colorWithWhite:0 alpha:0.95];
+        _box.layer.cornerRadius = 12;
+        _box.layer.borderColor = [UIColor cyanColor].CGColor;
+        _box.layer.borderWidth = 1;
+        _box.hidden = YES;
+        [self addSubview:_box];
 
-        UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(0, 15, 240, 30)];
-        title.text = @"HACK MAP VIP";
-        title.textColor = [UIColor cyanColor];
-        title.textAlignment = NSTextAlignmentCenter;
-        title.font = [UIFont boldSystemFontOfSize:18];
-        [_panel addSubview:title];
-
-        // Nút Bật/Tắt
-        _hackBtn = [UIButton buttonWithType:UIButtonTypeCustom];
-        _hackBtn.frame = CGRectMake(20, 70, 200, 50);
-        _hackBtn.backgroundColor = [UIColor grayColor];
-        _hackBtn.layer.cornerRadius = 10;
-        [_hackBtn setTitle:@"HACK MAP: OFF" forState:UIControlStateNormal];
-        [_hackBtn addTarget:self action:@selector(handleHack) forControlEvents:UIControlEventTouchUpInside];
-        [_panel addSubview:_hackBtn];
+        UIButton *sw = [UIButton buttonWithType:UIButtonTypeCustom];
+        sw.frame = CGRectMake(20, 50, 180, 45);
+        sw.backgroundColor = [UIColor darkGrayColor];
+        sw.layer.cornerRadius = 8;
+        [sw setTitle:@"HACK MAP: OFF" forState:UIControlStateNormal];
+        [sw addTarget:self action:@selector(toggleHack:) forControlEvents:UIControlEventTouchUpInside];
+        [_box addSubview:sw];
+        
+        UILabel *l = [[UILabel alloc] initWithFrame:CGRectMake(0, 10, 220, 30)];
+        l.text = @"DUC QUYET MENU";
+        l.textColor = [UIColor cyanColor];
+        l.textAlignment = NSTextAlignmentCenter;
+        [_box addSubview:l];
     }
     return self;
 }
 
-- (void)handleHack {
-    _isHackActive = !_isHackActive;
-    
-    // OFFSET VÀ BYTES (Cần khớp với phiên bản game bạn đang dùng)
-    uintptr_t hackOffset = 0x1D2C4A0; 
-    
-    if (_isHackActive) {
-        // MÃ HACK: Thường là lệnh Return (MOV W0, #1; RET)
-        safe_patch(hackOffset, "\x20\x00\x80\xD2\xC0\x03\x5F\xD6", 8);
-        
-        [_hackBtn setTitle:@"HACK MAP: ON" forState:UIControlStateNormal];
-        _hackBtn.backgroundColor = [UIColor greenColor];
+- (void)toggleHack:(UIButton *)s {
+    isHackMapEnabled = !isHackMapEnabled;
+    if (isHackMapEnabled) {
+        [s setTitle:@"HACK MAP: ON" forState:UIControlStateNormal];
+        s.backgroundColor = [UIColor colorWithRed:0 green:0.6 blue:0.2 alpha:1];
     } else {
-        // MÃ GỐC: Bạn PHẢI lấy mã gốc chính xác từ IDA Pro của phiên bản game này
-        // Nếu mã gốc này sai, game sẽ không tắt hack hoặc bị văng.
-        // Dưới đây là ví dụ mã gốc phổ biến (thay đổi tùy bản update)
-        safe_patch(hackOffset, "\xFF\x43\x00\xD1\xF4\x4F\x01\xA9", 8); 
-        
-        [_hackBtn setTitle:@"HACK MAP: OFF" forState:UIControlStateNormal];
-        _hackBtn.backgroundColor = [UIColor grayColor];
+        [s setTitle:@"HACK MAP: OFF" forState:UIControlStateNormal];
+        s.backgroundColor = [UIColor darkGrayColor];
     }
 }
 
-- (void)handlePan:(UIPanGestureRecognizer *)sender {
-    CGPoint t = [sender translationInView:self];
-    sender.view.center = CGPointMake(sender.view.center.x + t.x, sender.view.center.y + t.y);
-    [sender setTranslation:CGPointZero inView:self];
+- (void)drag:(UIPanGestureRecognizer *)g {
+    CGPoint t = [g translationInView:self];
+    g.view.center = CGPointMake(g.view.center.x + t.x, g.view.center.y + t.y);
+    [g setTranslation:CGPointZero inView:self];
 }
 
-- (void)togglePanel { _panel.hidden = !_panel.hidden; }
+- (void)open { _box.hidden = !_box.hidden; }
 
-- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
-    UIView *hit = [super hitTest:point withEvent:event];
-    return (hit == self) ? nil : hit;
+- (UIView *)hitTest:(CGPoint)p withEvent:(UIEvent *)e {
+    UIView *v = [super hitTest:p withEvent:e];
+    return (v == self) ? nil : v;
 }
 @end
 
-static void LoadDQ() {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        UIWindow *win = [UIApplication sharedApplication].keyWindow;
-        if (win && ![win viewWithTag:178]) {
-            DQMenu *menu = [[DQMenu alloc] initWithFrame:win.bounds];
-            [win addSubview:menu];
-        } else {
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{ LoadDQ(); });
-        }
-    });
-}
+// --- Khởi tạo và nạp Hook ---
+#import <substrate.h> // Thư viện để dùng MSHookFunction
 
-static __attribute__((constructor)) void init() {
+static __attribute__((constructor)) void setup() {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 6 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-        LoadDQ();
+        UIWindow *w = [UIApplication sharedApplication].keyWindow;
+        if (w && ![w viewWithTag:178]) {
+            DQMenu *m = [[DQMenu alloc] initWithFrame:w.bounds];
+            [w addSubview:m];
+        }
+        
+        // Thực hiện Hook hàm của game
+        // Thay 0x1D2C4A0 bằng Offset chuẩn của phiên bản bạn đang dùng
+        uintptr_t target = (uintptr_t)_dyld_get_image_header(0) + 0x1D2C4A0;
+        MSHookFunction((void *)target, (void *)new_IsVisible, (void **)&old_IsVisible);
     });
 }
