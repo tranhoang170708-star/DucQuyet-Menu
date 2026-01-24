@@ -288,25 +288,33 @@ void clear_evidence() {
 // 🚀 KHỞI CHẠY (INJECT)
 // ==========================================
 
-static void __attribute__((constructor)) init() {
-    // Đợi 5 giây sau khi game load để tránh bị Anti-Cheat quét lúc khởi động
+static void loadMenu() {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
         UIWindow *window = nil;
-        // Tìm Window chính xác nhất (Hỗ trợ iOS 13->17)
-        for (UIWindowScene *scene in [UIApplication sharedApplication].connectedScenes) {
-            if (scene.activationState == UISceneActivationStateForegroundActive) {
-                window = scene.windows.firstObject;
-                break;
-            }
-        }
-        if (!window) window = [UIApplication sharedApplication].keyWindow;
 
-        // Chỉ thêm Menu nếu chưa có
+        // Kiểm tra nếu thiết bị chạy iOS 13 trở lên thì mới dùng SceneDelegate
+        if (@available(iOS 13.0, *)) {
+            for (UIWindowScene *scene in [UIApplication sharedApplication].connectedScenes) {
+                if (scene.activationState == UISceneActivationStateForegroundActive) {
+                    // Lấy window chính từ scene đang hoạt động
+                    for (UIWindow *w in scene.windows) {
+                        if (w.isKeyWindow) {
+                            window = w;
+                            break;
+                        }
+                    }
+                }
+            }
+        } 
+        
+        // Nếu là iOS thấp hơn 13 hoặc không tìm thấy window từ scene
+        if (!window) {
+            window = [UIApplication sharedApplication].keyWindow;
+        }
+
         if (window && ![window viewWithTag:9999]) {
             DQMenu *menu = [[DQMenu alloc] initWithFrame:window.bounds];
             [window addSubview:menu];
-            
-            // Thông báo Toast nhẹ khi load xong
             NSLog(@"[DQ-MENU] Loaded Successfully!");
         }
     });
