@@ -108,7 +108,7 @@ void ultraAntiBan() {
         // Nút ẩn Menu hoàn toàn (Để qua mặt quay màn hình)
         UIButton *hideBtn = [UIButton buttonWithType:UIButtonTypeCustom];
         hideBtn.frame = CGRectMake(30, 180, 200, 40);
-        hideBtn.setTitle:@"ẨN MENU TẠM THỜI", forState:UIControlStateNormal];
+        [hideBtn setTitle:@"ẨN MENU TẠM THỜI" forState:UIControlStateNormal];
         hideBtn.titleLabel.font = [UIFont systemFontOfSize:12];
         [hideBtn addTarget:self action:@selector(hideCompletely) forControlEvents:UIControlEventTouchUpInside];
         [_box addSubview:hideBtn];
